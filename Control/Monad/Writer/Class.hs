@@ -16,7 +16,7 @@
 -- Stability   :  experimental
 -- Portability :  non-portable (multi-param classes, functional dependencies)
 --
--- The MonadWriter class.
+-- The 'MonadWriter' class.
 --
 --      Inspired by the paper
 --      /Functional Programming with Overloading and Higher-Order Polymorphism/,
@@ -62,6 +62,25 @@ import Data.Monoid
 -- pass lets you provide a writer transformer which changes internals of
 -- the written object.
 
+-- | Monads with output which can be captured.
+--
+-- === Laws
+--
+-- @
+-- 'tell' w1 '>>' 'tell' w2 = 'tell' (w1 '<>' w2)
+-- 'tell' 'mempty' = 'pure' ()
+--
+-- 'listen' ('pure' a) = 'pure' (a, 'mempty')
+-- 'listen' (m '>>=' k)
+--   = 'listen' m '>>=' \\(a, wa) -> 'listen' (k a) '>>=' \\(b, wb) -> 'pure' (b, wa '<>' wb)
+-- 'listen' ('tell' w) = 'tell' w '>>' 'pure' ((), w)
+-- 'listen' ('listen' m) = 'fmap' (\\(a, w) -> ((a, w), w)) ('listen' w)
+-- 'listen' ('pass' m) = 'pass' ('fmap' (\\((a, f), w) -> ((a, f w), f)) ('listen' m))
+--
+-- 'pass' ('tell' w '$>' ((), f)) = 'tell' (f w)
+--
+-- 'tell' w = 'writer' ((), w)
+-- @
 class (Monoid w, Monad m) => MonadWriter w m | m -> w where
 #if __GLASGOW_HASKELL__ >= 707
     {-# MINIMAL (writer | tell), listen, pass #-}
@@ -79,6 +98,7 @@ class (Monoid w, Monad m) => MonadWriter w m | m -> w where
     -- | @'listen' m@ is an action that executes the action @m@ and adds
     -- its output to the value of the computation.
     listen :: m a -> m (a, w)
+
     -- | @'pass' m@ is an action that executes the action @m@, which
     -- returns a value and a function, and returns the value, applying
     -- the function to the output.
